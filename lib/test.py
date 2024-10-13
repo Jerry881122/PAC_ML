@@ -44,3 +44,8 @@ def testing_data(model , device , test_loader , criterion):
     print('\tnumber of correct predict =',correct_pre)
     print('\tnumber of error predict   =',error_pre)
     print('\taccuracy =',correct_pre/(correct_pre+error_pre))
+
+    TPR = error_frame_error_pre/(error_frame_error_pre+error_frame_correct_pre)
+    FPR = correct_frame_error_pre/(correct_frame_correct_pre+correct_frame_error_pre)
+    accurary = correct_pre/(correct_pre+error_pre)
+    return TPR,FPR,accurary

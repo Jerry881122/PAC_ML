@@ -22,6 +22,7 @@ def training_data(model , device , train_loader , optimizer , criterion , epoch 
         # step 4 . calculate loss base on loss function
         loss = criterion(output , label) 
         # print("output = ",output)
+        # print(output.shape)
         # print("label = ",label)
         # print("loss = ",loss) 
         # step 5. doing back propagation and calculate the gradient value 
@@ -32,7 +33,7 @@ def training_data(model , device , train_loader , optimizer , criterion , epoch 
         losses.append(loss.item())
 
         # print loss every 100 batch
-        if batch_index % 100 == 0:    
+        if batch_index % 500 == 0:    
             data_index = batch_index*len(data)
             total_data = len(train_loader.dataset)
             percentage = 100.*batch_index/len(train_loader)
