@@ -57,4 +57,4 @@ def testing_data(model , device , test_loader , criterion):
     print('\tF1_score =',F1_score)
 
     
-    return TPR,FPR,accurary
+    return TPR,FPR,accurary,Recall,Precision,F1_score

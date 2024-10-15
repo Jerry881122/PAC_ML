@@ -8,9 +8,10 @@ import matplotlib.pyplot as plt
 
 
 def training_data(model , device , train_loader , optimizer , criterion , epoch , losses):
-
+    print("")
     model.train()
 
+    total_loss = 0
     # progress_bar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{EPOCHS}", unit="batch")
     for batch_index , (data , label) in enumerate(train_loader):
         # step 1. move the data to our device
@@ -21,23 +22,22 @@ def training_data(model , device , train_loader , optimizer , criterion , epoch 
         output = model(data)
         # step 4 . calculate loss base on loss function
         loss = criterion(output , label) 
-        # print("output = ",output)
-        # print(output.shape)
-        # print("label = ",label)
-        # print("loss = ",loss) 
         # step 5. doing back propagation and calculate the gradient value 
         loss.backward()
         # step 6. update the weight 
         optimizer.step()
-
-        losses.append(loss.item())
-
+        # step 7. summing loss of every batch
+        total_loss += loss.item()
+        
         # print loss every 100 batch
         if batch_index % 500 == 0:    
             data_index = batch_index*len(data)
             total_data = len(train_loader.dataset)
             percentage = 100.*batch_index/len(train_loader)
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(epoch,data_index,total_data,percentage,loss.item()))
+
+    avg_loss = total_loss / len(train_loader)
+    losses.append(avg_loss)
 
     # params = model.parameters()
     # for param in params:

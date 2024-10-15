@@ -57,31 +57,36 @@ class model_2(nn.Module):
 
 
 class LSTM_model(nn.Module):
-    def __init__(self,input_size,hidden_size,num_layer,output_size,device):
+    def __init__(self,input_size,lstm_size,fc_size,output_size,device):
         super().__init__()
         self.input_size  = input_size
-        self.hidden_size = hidden_size
-        self.num_layer   = num_layer
+        self.lstm_size   = lstm_size
+        self.fc_size     = fc_size
         self.output_size = output_size
         self.device      = device
 
         # LSTM layer
-        self.lstm = nn.LSTM(self.input_size,self.hidden_size,self.num_layer,batch_first=True)
+        self.lstm = nn.LSTM(self.input_size,self.lstm_size,batch_first=True)
 
         # output layer
-        self.fc   = nn.Linear(self.hidden_size,self.output_size)
+        self.fc   = nn.Linear(self.lstm_size,self.fc_size)
+        self.fc2  = nn.Linear(self.fc_size,self.output_size)
         self.sigmoid = nn.Sigmoid()
 
     def forward(self,x):
 
-        h0 = torch.zeros(self.num_layer, x.size(0), self.hidden_size).requires_grad_().to(self.device)
-        c0 = torch.zeros(self.num_layer, x.size(0), self.hidden_size).requires_grad_().to(self.device)
+        h0 = torch.zeros(1 , x.size(0), self.lstm_size).to(self.device)
+        c0 = torch.zeros(1 , x.size(0), self.lstm_size).to(self.device)
 
-
-        out, (hn, cn) = self.lstm(x, (h0.detach(), c0.detach()))
+        out , (hn, cn) = self.lstm(x , (h0, c0))
         out = self.fc(out[:, -1, :])  # Selecting the last output
+        out = self.fc2(out)
         out = self.sigmoid(out)
         return out
+
+class stacked_LSTM_model(nn.Module):
+    def __init__(self):
+        pass
 
 
 
