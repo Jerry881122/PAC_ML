@@ -31,7 +31,7 @@ learning_rate_name = "tmp_model/lr_" + name + ".jpg"
 print(path_name)
 
 # define parameter
-EPOCHS = 20
+EPOCHS = 30
 BATCH_SIZE = 64
 LR = 0.001
 print_LR = LR
@@ -40,8 +40,10 @@ print_LR = LR
 device = SetCuda()
 
 # using pandas to read csv file             0 -> correct codeword , 1 -> error codeword 
-df = pd.read_csv('resource/train/SNR2_L8/L=8_frame=100000_SNR=2.csv')
+# df = pd.read_csv('resource/train/SNR2_L8/L=8_frame=100000_SNR=2.csv')
 df_test = pd.read_csv('resource/test/SNR2_L8/L=8_frame=25000_SNR=2.csv')
+df = pd.read_csv('resource/train/SNR2_L8/bounding/bounding_train_data.csv')
+# df_test = pd.read_csv('resource/test/SNR2_L8/bounding/bounding_test_data.csv')
 
 
 # pandas -> numpy -> tensor , and first 8 data are feature & last data are label
@@ -66,8 +68,8 @@ print(model)
 weight = torch.tensor([20,1])   # [pos_weight,neg_weight]
 
 # criterion = nn.BCEWithLogitsLoss(pos_weight=weight[0])
-criterion = weighted_BCE_loss(weight=weight)
-# criterion = FocalLoss(weight=weight)
+# criterion = weighted_BCE_loss(weight=weight)
+criterion = FocalLoss(weight=weight)
 # criterion = nn.BCELoss()
 
 

@@ -16,6 +16,7 @@ from lib.SetCuda import SetCuda
 from lib import Mymodel      # model function
 from lib import train        # training function
 from lib import test         # testing function
+from lib.data_preprocess import normalization
 from lib.loss import weighted_BCE_loss
 from lib.loss import FocalLoss
 
@@ -35,12 +36,12 @@ device = SetCuda()
 
 
 # define parameter
-EPOCHS = 1
+EPOCHS = 20
 BATCH_SIZE = 32
 LR = 0.001
 print_LR = LR
 
-# weight name
+# weight name   
 name = "LSTM_ROC"
 path_name = "tmp_model/LSTM/" + name + ".pth"
 loss_name = "tmp_model/LSTM/loss_" + name + ".jpg"
@@ -49,17 +50,31 @@ csv_name = "tmp_model/LSTM/" + name + ".csv"
 
 
 # using pandas to read csv file             0 -> correct codeword , 1 -> error codeword 
-df = pd.read_csv('resource/train/SNR2_L8/L=8_frame=100000_SNR=2.csv')
-df_test = pd.read_csv('resource/test/SNR2_L8/L=8_frame=25000_SNR=2.csv')
+# df = pd.read_csv('resource/train/SNR2_L8/L=8_frame=100000_SNR=2.csv')
+# df_test = pd.read_csv('resource/test/SNR2_L8/L=8_frame=25000_SNR=2.csv')
+df = pd.read_csv('resource/train/SNR2_L8/bounding/bounding_train_data.csv')     # bounding data
+df_test = pd.read_csv('resource/test/SNR2_L8/bounding/bounding_test_data.csv')  # bounding data
 
 
 # pandas -> numpy -> tensor , and first 8 data are feature & last data are label
 feature = torch.tensor(df.iloc[:,0:-1].to_numpy(dtype=np.float32))
+
+feature_nor_obj = normalization()
+feature = feature_nor_obj.training_normalization(feature)
+
 feature = feature.view(len(feature) , len(feature[0]) , 1)          # change shape to (10000,8,1)
+
 label = torch.tensor(df.iloc[:,-1:].to_numpy(dtype=np.float32))
+
 feature_test = torch.tensor(df_test.iloc[:,0:-1].to_numpy(dtype=np.float32))
+
+feature_test = feature_nor_obj.testing_normalization(feature_test)
+
 feature_test = feature_test.view(len(feature_test) , len(feature_test[0]) , 1)
+
 label_test = torch.tensor(df_test.iloc[:,-1:].to_numpy(dtype=np.float32))
+
+
 
 # using dataset and DataLoader from pytorch to store train data
 dataset = MyDataset(feature,label)
@@ -70,7 +85,7 @@ test_loader = DataLoader(dataset_test,batch_size = BATCH_SIZE,shuffle = False)
 
 # setting model parameter
 input_size = 1
-hidden_size = 8
+hidden_size = 32
 num_layer = 1
 output_size = 1
 
@@ -81,7 +96,9 @@ print(model)
 
 
 # # Loss and optimizer
+weight = torch.tensor([20,1])   # [pos_weight,neg_weight]
 criterion = nn.BCELoss()        # binary cross entropy
+# criterion = weighted_BCE_loss(weight=weight)
 # criterion = nn.MSELoss()  # Mean Squared Error for regression tasks
 # optimizer = optim.SGD(model.parameters(),lr=LR)
 optimizer = optim.Adam(model.parameters(), lr=LR)
