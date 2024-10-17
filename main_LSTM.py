@@ -36,19 +36,19 @@ print('\n')
 device = SetCuda()
 
 
-# define parameter
-EPOCHS = 30
-BATCH_SIZE = 16
-LR = 0.001
-
-
-# weight name   
-# name = "LSTM_ROC"
+# 輸入 model 的名字
 name = input("input model name = ")
 path_name = "tmp_model/LSTM/" + name + ".pth"
 loss_name = "tmp_model/LSTM/loss_" + name + ".jpg"
 learning_rate_name = "tmp_model/LSTM/lr_" + name + ".jpg"
 csv_name = "tmp_model/LSTM/" + name + ".csv"
+
+
+# define parameter
+EPOCHS = 30
+BATCH_SIZE = 64
+LR = 0.001
+
 
 
 # using pandas to read csv file             0 -> correct codeword , 1 -> error codeword 
@@ -60,9 +60,9 @@ df_test_bounding = pd.read_csv('resource/test/SNR2_L8/bounding/bounding_test_dat
 
 # pandas -> numpy -> tensor , and first 8 data are feature & last data are label (data pre-process)
 data_obj = data_preprocess()
-feature = data_obj.train_process_LSTM(df,normalized=True)
-feature_test = data_obj.test_process_LSTM(df_test,normalized=True)
-feature_test_bounding = data_obj.test_process_LSTM(df_test_bounding,normalized=True)
+feature = data_obj.train_process_LSTM(df,normalized=False)
+feature_test = data_obj.test_process_LSTM(df_test,normalized=False)
+feature_test_bounding = data_obj.test_process_LSTM(df_test_bounding,normalized=False)
 
 label = torch.tensor(df.iloc[:,-1:].to_numpy(dtype=np.float32))
 label_test = torch.tensor(df_test.iloc[:,-1:].to_numpy(dtype=np.float32))
@@ -80,8 +80,8 @@ test_loader_bounding = DataLoader(dataset_test_bounding,batch_size = BATCH_SIZE,
 
 # setting model parameter
 input_size = 1
-lstm_size = 32
-fc_size = 8
+lstm_size = 16
+fc_size = 4
 output_size = 1
 
 model = Mymodel.LSTM_model(input_size=input_size,lstm_size=lstm_size,fc_size=fc_size,
@@ -91,9 +91,10 @@ print(model)
 
 
 # # Loss and optimizer
-# weight = torch.tensor([2,1])   # [pos_weight,neg_weight]
+# weight = torch.tensor([5,1])   # [pos_weight,neg_weight]
 criterion = nn.BCELoss()        # binary cross entropy
 # criterion = weighted_BCE_loss(weight=weight)
+# criterion = FocalLoss(weight=weight)
 # criterion = nn.MSELoss()  # Mean Squared Error for regression tasks
 # optimizer = optim.SGD(model.parameters(),lr=LR)
 optimizer = optim.Adam(model.parameters(), lr=LR)

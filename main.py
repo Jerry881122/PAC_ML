@@ -8,6 +8,7 @@ from torch.utils.data import DataLoader
 import torch.optim as optim
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+import csv
 
 # my own lib
 from lib.MyDataset import MyDataset
@@ -15,6 +16,7 @@ from lib.SetCuda import SetCuda
 from lib import Mymodel      # model function
 from lib import train        # training function
 from lib import test         # testing function
+from lib.data_preprocess import data_preprocess # data pre-process , normalized , reshape ,etc.
 from lib.loss import weighted_BCE_loss
 from lib.loss import FocalLoss
 
@@ -23,40 +25,57 @@ from lib.loss import FocalLoss
 # begin timer
 timer_begin = time.time()
 
+print("\nsimulated environment")
+print('\tTorch',torch.__version__,'CUDA',torch.version.cuda)
+print('\tcuDNN version: ' + str(torch.backends.cudnn.version()))
+print('\tusing CUDA = ' + str(torch.cuda.is_available()))  # 檢查 CUDA 是否可用
+print('\n')
+
+# setting device
+device = SetCuda()
+
 # 輸入 model 的名字
-name = input("tmp_model/")
+name = input("input model name = ")
 path_name = "tmp_model/" + name + ".pth"
 loss_name  = "tmp_model/loss_" + name + ".jpg"
-learning_rate_name = "tmp_model/lr_" + name + ".jpg"
+csv_name = "tmp_model/" + name + ".csv"
 print(path_name)
 
 # define parameter
 EPOCHS = 30
 BATCH_SIZE = 64
 LR = 0.001
-print_LR = LR
 
-# setting device
-device = SetCuda()
 
 # using pandas to read csv file             0 -> correct codeword , 1 -> error codeword 
 # df = pd.read_csv('resource/train/SNR2_L8/L=8_frame=100000_SNR=2.csv')
 df_test = pd.read_csv('resource/test/SNR2_L8/L=8_frame=25000_SNR=2.csv')
-df = pd.read_csv('resource/train/SNR2_L8/bounding/bounding_train_data.csv')
-# df_test = pd.read_csv('resource/test/SNR2_L8/bounding/bounding_test_data.csv')
+df = pd.read_csv('resource/train/SNR2_L8/bounding/bounding_train_data.csv')                 # bounding data
+df_test_bounding = pd.read_csv('resource/test/SNR2_L8/bounding/bounding_test_data.csv')     # bounding data
 
 
-# pandas -> numpy -> tensor , and first 8 data are feature & last data are label
-feature = torch.tensor(df.iloc[:,0:-1].to_numpy(dtype=np.float32))
+# pandas -> numpy -> tensor , and first 8 data are feature & last data are label (data pre-process)
+    # instance object
+data_obj = data_preprocess()
+    # training data
+feature = data_obj.train_process_DNN(df,normalized=False)
+    # testing data
+feature_test = data_obj.test_process_DNN(df_test,normalized=False)
+feature_test_bounding = data_obj.test_process_DNN(df_test_bounding,normalized=False)
+
 label = torch.tensor(df.iloc[:,-1:].to_numpy(dtype=np.float32))
-feature_test = torch.tensor(df_test.iloc[:,0:-1].to_numpy(dtype=np.float32))
 label_test = torch.tensor(df_test.iloc[:,-1:].to_numpy(dtype=np.float32))
+label_test_bounding = torch.tensor(df_test_bounding.iloc[:,-1:].to_numpy(dtype=np.float32))
 
 # using dataset and DataLoader from pytorch to store train data
 dataset = MyDataset(feature,label)
 dataset_test = MyDataset(feature_test,label_test)
-train_loader = DataLoader(dataset,batch_size = BATCH_SIZE,shuffle = True)
+dataset_test_bounding = MyDataset(feature_test_bounding,label_test_bounding)
+train_loader = DataLoader(dataset, batch_size = BATCH_SIZE, shuffle = True)
 test_loader = DataLoader(dataset_test,batch_size = BATCH_SIZE,shuffle = False)
+test_loader_bounding = DataLoader(dataset_test_bounding,batch_size = BATCH_SIZE,shuffle = False)
+
+
 
 # setting deep learning model
 model = Mymodel.DNN_1().to(device)
@@ -65,24 +84,31 @@ print(model)
 
 
 # setting loss function & gradient decent
-weight = torch.tensor([20,1])   # [pos_weight,neg_weight]
-
+# weight = torch.tensor([5,1])   # [pos_weight,neg_weight]
 # criterion = nn.BCEWithLogitsLoss(pos_weight=weight[0])
 # criterion = weighted_BCE_loss(weight=weight)
-criterion = FocalLoss(weight=weight)
-# criterion = nn.BCELoss()
-
-
-optimizer = optim.SGD(model.parameters(),lr=LR)
+# criterion = FocalLoss(weight=weight)
+criterion = nn.BCELoss()
+# optimizer = optim.SGD(model.parameters(),lr=LR)
+optimizer = optim.Adam(model.parameters(), lr=LR)
 # optimizer = optim.Adam(model.parameters() , lr=LR , betas=(0.9, 0.999) , eps=1e-08)
 
 # learning rate scheduler
-scheduler = optim.lr_scheduler.ExponentialLR(optimizer , gamma = 0.9 , last_epoch = -1)
+# scheduler = optim.lr_scheduler.ExponentialLR(optimizer , gamma = 0.9 , last_epoch = -1)
 
 
 # training model
 losses = []     # storing loss 
-learning_rates = []
+# learning_rates = []
+
+TPR = []
+FPR = []
+accurary = []
+Recall = []
+Precision = []
+F1_score = []
+
+
 for epoch in range(EPOCHS):
     # training data
     train.training_data(model,device,train_loader,optimizer,criterion,epoch,losses)
@@ -91,27 +117,63 @@ for epoch in range(EPOCHS):
     if(epoch == EPOCHS-1):
         # testing the training data
         print('\ntesting training data')
-        test.testing_data(model,device,train_loader,criterion)
-        # testing the testing data
-        print('\ntesting testing data')
-        test.testing_data(model,device,test_loader,criterion)
+        tpr , fpr , acc , recall , precision , f1_score = test.testing_data(model,device,train_loader,criterion)
+        TPR.append(tpr)
+        FPR.append(fpr)
+        accurary.append(acc)
+        Recall.append(recall)
+        Precision.append(precision)
+        F1_score.append(f1_score)
+        # testing the testing data 
+        print('\ntesting testing data without bounding')
+        tpr , fpr , acc , recall , precision , f1_score = test.testing_data(model,device,test_loader,criterion)
+        TPR.append(tpr)
+        FPR.append(fpr)
+        accurary.append(acc)
+        Recall.append(recall)
+        Precision.append(precision)
+        F1_score.append(f1_score)
+        # testing the testing data 
+        print('\ntesting testing data with bounding')
+        tpr , fpr , acc , recall , precision , f1_score = test.testing_data(model,device,test_loader_bounding,criterion)
+        TPR.append(tpr)
+        FPR.append(fpr)
+        accurary.append(acc)
+        Recall.append(recall)
+        Precision.append(precision)
+        F1_score.append(f1_score)
         print('///////////////////////////////\n')
 
-    learning_rates.append(optimizer.param_groups[0]['lr'])
-    scheduler.step();
+    # learning_rates.append(optimizer.param_groups[0]['lr'])
+    # scheduler.step();
     
 
     # update the learning rate
     # if epoch % 10 == 0 and epoch != 0  :
     #     LR = LR * 0.5
     #     print('LR update')
+  
 
-timer_end = time.time()
-print("execution time =",timer_end-timer_begin,' second')        
+with open(csv_name , 'w' , newline = '') as Filecsv:
+    writer = csv.writer(Filecsv)
+
+    writer.writerow(['EPOCHS'] + [EPOCHS])
+    writer.writerow(['BATCHS'] + [BATCH_SIZE])
+    writer.writerow(['learning rate'] + [LR])
+    writer.writerow([''])
+    writer.writerow(['','train_result','test_result','test_bounding'])
+    writer.writerow(['TPR'] + TPR)
+    writer.writerow(['FPR'] + FPR)
+    writer.writerow(['accurary'] + accurary)
+    writer.writerow(['Recall'] + Recall)
+    writer.writerow(['Precision'] + Precision)
+    writer.writerow(['F1_score'] + F1_score)
+
+
 
 # figures
 train.loss_update_fig(losses,loss_name)
-train.learning_rate_updata_fig(learning_rates,learning_rate_name)
+# train.learning_rate_updata_fig(learning_rates,learning_rate_name)
 
 # print out model weight
 # params = model.parameters()
@@ -121,11 +183,10 @@ train.learning_rate_updata_fig(learning_rates,learning_rate_name)
 # save the model weight 
 torch.save(model.state_dict() , path_name)
 
-
-
-print(model)
-print('\nParameter\n\tEPOCHS =',EPOCHS)
-print('\tBatch size =',BATCH_SIZE)
-print('\tLearning rate =',print_LR,'\n')
+# execution time ( represented as hour , minute , second)
+timer_end = time.time()
+hours, rem = divmod(timer_end-timer_begin, 3600)
+minutes, seconds = divmod(rem, 60)
+print("Execution Time: {:0>2}h {:0>2}m {:05.2f}s".format(int(hours), int(minutes), seconds))
 
 

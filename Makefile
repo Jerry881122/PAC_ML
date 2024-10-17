@@ -20,6 +20,9 @@ NPM:
 LSTM:
 	$(PYTHON) main_LSTM.py
 
+RFT:
+	$(PYTHON) main_RFT.py
+
 clean:
 	@rm -f $(CURDIR)/tmp_model/*.jpg
 	@rm -f $(CURDIR)/tmp_model/*.pth
